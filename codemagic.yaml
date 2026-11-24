@@ -1,0 +1,45 @@
+workflows:
+  unsigned-ipa:
+    name: Unsigned Telegram IPA
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      xcode: "26.2"
+      vars:
+        XCODE_WORKSPACE: ""
+    scripts:
+      - name: Build unsigned IPA (Bazel)
+        script: |
+          set -x
+          BUILD_NUMBER_OFFSET="$(cat build_number_offset)"
+          export APP_VERSION=$(cat versions.json | python3 -c 'import json,sys;obj=json.load(sys.stdin);print(obj["app"]);')
+          export COMMIT_COUNT=$(git rev-list --count HEAD)
+          export COMMIT_COUNT="$(($COMMIT_COUNT+$BUILD_NUMBER_OFFSET))"
+          export BUILD_NUMBER="$COMMIT_COUNT"
+
+          python3 build-system/Make/ImportCertificates.py --path build-system/fake-codesigning/certs
+          python3 -u build-system/Make/Make.py \
+            build \
+            --configurationPath="build-system/appstore-configuration.json" \
+            --codesigningInformationPath=build-system/fake-codesigning \
+            --configuration=release_arm64 \
+            --buildNumber="$BUILD_NUMBER"
+
+      - name: Collect IPA and dSYMs
+        script: |
+          set -x
+          OUTPUT_PATH="build/artifacts"
+          rm -rf "$OUTPUT_PATH"
+          mkdir -p "$OUTPUT_PATH"
+          for f in bazel-out/applebin_ios-ios_arm*-opt-ST-*/bin/Telegram/Telegram.ipa; do
+            cp "$f" "$OUTPUT_PATH/"
+          done
+          mkdir -p build/DSYMs
+          for f in bazel-out/applebin_ios-ios_arm*-opt-ST-*/bin/Telegram/*.dSYM; do
+            cp -R "$f" build/DSYMs/
+          done
+          zip -r "$OUTPUT_PATH/Telegram.DSYMs.zip" build/DSYMs 1>/dev/null || true
+
+    artifacts:
+      - build/artifacts/Telegram.ipa
+      - build/artifacts/Telegram.DSYMs.zip
