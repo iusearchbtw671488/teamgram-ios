@@ -5,8 +5,6 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       xcode: "26.2"
-      vars:
-        XCODE_WORKSPACE: ""
     scripts:
       - name: Build unsigned IPA (Bazel)
         script: |
