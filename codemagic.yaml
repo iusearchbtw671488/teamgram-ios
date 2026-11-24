@@ -6,6 +6,12 @@ workflows:
     environment:
       xcode: "26.2"
     scripts:
+      - name: Download Metal toolchain
+        script: |
+          set -x
+          sudo xcodebuild -runFirstLaunch || true
+          xcodebuild -downloadComponent MetalToolchain
+
       - name: Build unsigned IPA (Bazel)
         script: |
           set -x
